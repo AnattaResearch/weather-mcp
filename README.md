@@ -1,6 +1,6 @@
 # ECMWF OpenCharts MCP Server
 
-MCP server for fetching weather charts from ECMWF OpenCharts API.
+MCP server for fetching weather charts from ECMWF OpenCharts API. Built with [FastMCP](https://github.com/jlowin/fastmcp).
 
 ## Installation
 
@@ -8,9 +8,25 @@ MCP server for fetching weather charts from ECMWF OpenCharts API.
 pip install -r requirements.txt
 ```
 
+## Running the Server
+
+### stdio mode (for Claude Desktop)
+
+```bash
+python ecmwf_charts_mcp.py
+```
+
+### HTTP mode (for remote access)
+
+```bash
+python -c "from ecmwf_charts_mcp import mcp; mcp.run(transport='http', port=8000)"
+```
+
 ## Configuration
 
-Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+### Claude Desktop
+
+Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS or `~/.config/Claude/claude_desktop_config.json` on Linux):
 
 ```json
 {
@@ -21,6 +37,14 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
     }
   }
 }
+```
+
+### Using FastMCP CLI
+
+You can also run the server using the FastMCP CLI:
+
+```bash
+fastmcp run ecmwf_charts_mcp.py
 ```
 
 ## Available Tools
