@@ -6,10 +6,12 @@ Provides tools to fetch weather charts from ECMWF OpenCharts API
 Built with FastMCP
 """
 
+import io
 import re
 from typing import Annotated, Literal
 
 import requests
+from PIL import Image as PILImage
 from fastmcp import FastMCP
 from fastmcp.utilities.types import Image
 from pydantic import Field
@@ -187,6 +189,45 @@ def fetch_ecmwf_chart(
         if img_response.status_code != 200:
             return [f"Error downloading image: {img_response.status_code}"]
 
+        # Compress and resize image to stay under Claude Desktop's 1MB limit
+        # Target ~700KB to leave headroom for base64 encoding overhead (~33%)
+        MAX_SIZE_BYTES = 700 * 1024
+        MAX_DIMENSION = 1400
+        
+        original_size = len(img_response.content)
+        img = PILImage.open(io.BytesIO(img_response.content))
+        
+        # Resize if image is too large
+        if max(img.size) > MAX_DIMENSION:
+            ratio = MAX_DIMENSION / max(img.size)
+            new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+            img = img.resize(new_size, PILImage.Resampling.LANCZOS)
+        
+        # Convert to RGB if necessary (for JPEG)
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+        
+        # Try progressive quality reduction to fit under size limit
+        compressed_data: bytes = b""
+        quality = 85
+        while quality >= 30:
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=quality, optimize=True)
+            compressed_data = buffer.getvalue()
+            if len(compressed_data) <= MAX_SIZE_BYTES:
+                break
+            quality -= 10
+        
+        # If still too large after compression, resize more aggressively
+        if len(compressed_data) > MAX_SIZE_BYTES:
+            ratio = 0.7
+            while len(compressed_data) > MAX_SIZE_BYTES and min(img.size) > 400:
+                new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+                img = img.resize(new_size, PILImage.Resampling.LANCZOS)
+                buffer = io.BytesIO()
+                img.save(buffer, format='JPEG', quality=60, optimize=True)
+                compressed_data = buffer.getvalue()
+
         # Build metadata
         product_info = PRODUCTS.get(product_id, {})
         metadata = f"""# ECMWF Chart: {product_info.get('name', product_id)}
@@ -199,11 +240,13 @@ def fetch_ecmwf_chart(
 **Valid time:** {valid_time}
 
 **Image URL:** {image_url}
-**Size:** {len(img_response.content)} bytes
+**Original size:** {original_size} bytes
+**Compressed size:** {len(compressed_data)} bytes
+**Dimensions:** {img.size[0]}x{img.size[1]}
 """
 
-        # Return metadata and image using FastMCP's Image helper
-        return [metadata, Image(data=img_response.content, format="png")]
+        # Return metadata and compressed image using FastMCP's Image helper
+        return [metadata, Image(data=compressed_data, format="jpeg")]
 
     except requests.exceptions.RequestException as e:
         return [f"Network error: {str(e)}"]
