@@ -7,6 +7,7 @@ Built with FastMCP
 """
 
 import io
+import os
 import re
 from typing import Annotated, Literal
 
@@ -255,4 +256,8 @@ def fetch_ecmwf_chart(
 
 
 if __name__ == "__main__":
-    mcp.run()
+    port = os.getenv("PORT")
+    if port:
+        mcp.run(transport="http", host="0.0.0.0", port=int(port))
+    else:
+        mcp.run()
