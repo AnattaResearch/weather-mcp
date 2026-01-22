@@ -22,6 +22,17 @@ python ecmwf_charts_mcp.py
 python -c "from ecmwf_charts_mcp import mcp; mcp.run(transport='http', port=8000)"
 ```
 
+### Deploy to Railway (MCP HTTP transport)
+
+This repo includes a `Procfile` and `railway.toml` that start the MCP server over HTTP using the
+FastMCP CLI. Railway provides the `PORT` environment variable automatically.
+
+**Steps:**
+1. Create a new Railway project and link this repository.
+2. Ensure the start command is `fastmcp run ecmwf_charts_mcp.py:mcp --transport http --port $PORT`
+   (preconfigured in `railway.toml`).
+3. Deploy, then configure your MCP-capable client to connect to the Railway URL.
+
 ## Configuration
 
 ### Claude Desktop
